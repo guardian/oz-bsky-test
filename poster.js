@@ -10,7 +10,14 @@ dotenv.config()
 const cheerio = require("cheerio");
 
 const Parser = require("rss-parser");
-const parser = new Parser();
+// const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [
+      ['media:content', 'media:content', {keepArray: true}],
+    ]
+  }
+})
 
 accounty = process.env.ACC
 passy = process.env.PASS
@@ -20,7 +27,8 @@ passy = process.env.PASS
 // 'https://www.theguardian.com/collection/au-alpha/features/feature-stories/rss',
 // ]
 
-rss_feeds = ['https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss'
+rss_feeds = ['https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-business/rss'
 ]
 
 // ### Function to post new posts 
@@ -38,7 +46,7 @@ async function post(agent, item) {
     external: {
       uri: item.link,
       title: item.title,
-      description: "Test",
+      description: item.description,
     },
     $type: "app.bsky.embed.external",
   };
@@ -72,7 +80,7 @@ async function do_everything(feeds){
 
   await agent.getAuthorFeed({
       actor: accounty,
-      limit: 100,
+      limit: 5,
       cursor: cursor,
     }).then(response => 
       {
@@ -81,7 +89,8 @@ async function do_everything(feeds){
           already_posted.push(feed.post.record.embed.external.uri)
         }
       }
-    ).then(() => console.log("already_posted: ", already_posted))
+    // ).then(() => console.log("already_posted: ", already_posted)
+    )
 
   // ### This first grabs the stories 
 
@@ -90,11 +99,20 @@ async function do_everything(feeds){
         {
         for (const item of response.items)
         {
+          // console.log("items: ", item)
+          // let inter_description = null;
+          // const description_ = dom('head > meta[property="og:description"]');
+          // if (description_) {
+          //   inter_description = description_.attr("content");
+          // }
           // ### Check to see if it has already been posted 
           if (!already_posted.includes(item.link + '?CMP=aus_bsky')){
           list_of_stories.push({
             title: item.title,
-            link: item.link + '?CMP=aus_bsky'})
+            link: item.link + '?CMP=aus_bsky',
+            description: item.contentSnippet,
+          image: item.media}
+            )
           }
         }
         })
@@ -103,6 +121,7 @@ async function do_everything(feeds){
         .then(() => {
 
 
+            // ### This is what's actually posting 
             list_of_stories.forEach(story => {
               post(agent, story);
             })
@@ -111,7 +130,7 @@ async function do_everything(feeds){
 
         })
 
-        .then(() => console.log("list_of_stories: ", list_of_stories))
+        // .then(() => console.log("list_of_stories: ", list_of_stories))
 
 
 }
