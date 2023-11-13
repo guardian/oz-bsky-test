@@ -3,38 +3,27 @@ const { BskyAgent, AppBskyFeedPost } = require("@atproto/api");
 // ### envrionment variables 
 const dotenv = require('dotenv');
 dotenv.config()
-console.log(process.env)
+// console.log(process.env)
 // import dotenv from 'dotenv'
 // dotenv.config()
 
 const cheerio = require("cheerio");
-const sharp = require("sharp");
+
 const Parser = require("rss-parser");
 const parser = new Parser();
 
+accounty = process.env.ACC
+passy = process.env.PASS
 
-const settings = [
-  {
-    account: process.env.ACC,
-    password: process.env.PASS,
-    // url: "https://feeds.bbci.co.uk/news/uk/rss.xml#",
-    // url: 'https://www.theguardian.com/au/rss'
-    url: 'https://www.theguardian.com/data/rss'
-  }
-];
+// rss_feeds = ['https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss',
+// 'https://www.theguardian.com/tracking/commissioningdesk/australia-business/rss',
+// 'https://www.theguardian.com/collection/au-alpha/features/feature-stories/rss',
+// ]
 
-async function get_feeds(url) {
-  const feed = await parser.parseURL(url);
-  let output = [];
-  for (const item of feed.items) {
-    output.push({
-      title: item.title,
-      link: item.link,
-    });
-  }
-  return output;
-}
+rss_feeds = ['https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss'
+]
 
+// ### Function to post new posts 
 async function post(agent, item) {
   let post = {
     $type: "app.bsky.feed.post",
@@ -45,43 +34,15 @@ async function post(agent, item) {
     .then((response) => response.text())
     .then((html) => cheerio.load(html));
 
-  let description = null;
-  const description_ = dom('head > meta[property="og:description"]');
-  if (description_) {
-    description = description_.attr("content");
-  }
-
-  let image_url = null;
-  const image_url_ = dom('head > meta[property="og:image"]');
-  if (image_url_) {
-    image_url = image_url_.attr("content");
-  }
-  const buffer = await fetch(image_url)
-    .then((response) => response.arrayBuffer())
-    .then((buffer) => sharp(buffer))
-    .then((s) =>
-      s.resize(
-        s
-          .resize(800, null, {
-            fit: "inside",
-            withoutEnlargement: true,
-          })
-          .jpeg({
-            quality: 80,
-            progressive: true,
-          })
-          .toBuffer()
-      )
-    );
-
   post["embed"] = {
     external: {
       uri: item.link,
       title: item.title,
-      description: description,
+      description: "Test",
     },
     $type: "app.bsky.embed.external",
   };
+
   const res = AppBskyFeedPost.validateRecord(post);
   if (res.success) {
     console.log(post);
@@ -91,41 +52,71 @@ async function post(agent, item) {
   }
 }
 
-async function main(setting) {
+
+// ### This is the actual funciton doing everything 
+
+async function do_everything(feeds){
+  let list_of_stories = []
+  let already_posted = []
+  let cursor = "";
+
+  // ### Login and validate  
   const agent = new BskyAgent({ service: "https://bsky.social" });
+
   await agent.login({
-    identifier: setting.account,
-    password: setting.password,
+    identifier: accounty,
+    password: passy,
   });
 
-  let processed = new Set();
-  let cursor = "";
-  let counter = 0
-  for (let i = 0; i < 3; ++i) {
-    const response = await agent.getAuthorFeed({
-      actor: setting.account,
+  // ### Grab the already posted stories 
+
+  await agent.getAuthorFeed({
+      actor: accounty,
       limit: 100,
       cursor: cursor,
-    });
-    cursor = response.cursor;
-    for (const feed of response.data.feed) {
-      processed.add(feed.post.record.embed.external.uri);
-      processed.add(feed.post.record.text);
-    }
-  }
-  for (const feed of await get_feeds(setting.url)) {
-    if (counter < 5){
-        if (!processed.has(feed.title) && !processed.has(feed.link)) {
-        await post(agent, feed);
-        } else {
-        console.log("skipped " + feed.title);
+    }).then(response => 
+      {
+        cursor = response.cursor
+        for (const feed of response.data.feed) {
+          already_posted.push(feed.post.record.embed.external.uri)
         }
-        counter += 1
-    }
-  }
+      }
+    ).then(() => console.log("already_posted: ", already_posted))
+
+  // ### This first grabs the stories 
+
+    Promise.all(feeds.map(url => parser.parseURL(url)
+      .then(response => 
+        {
+        for (const item of response.items)
+        {
+          // ### Check to see if it has already been posted 
+          if (!already_posted.includes(item.link + '?CMP=aus_bsky')){
+          list_of_stories.push({
+            title: item.title,
+            link: item.link + '?CMP=aus_bsky'})
+          }
+        }
+        })
+        ))
+        
+        .then(() => {
+
+
+            list_of_stories.forEach(story => {
+              post(agent, story);
+            })
+
+      
+
+        })
+
+        .then(() => console.log("list_of_stories: ", list_of_stories))
+
+
 }
 
-for (const setting of settings) {
-    console.log("process " + setting.url);
-    main(setting);
-  }
+do_everything(rss_feeds)
+
+
+
