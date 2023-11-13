@@ -1,4 +1,7 @@
 const { BskyAgent, AppBskyFeedPost } = require("@atproto/api");
+const timer = ms => new Promise(res => setTimeout(res, ms)) 
+
+const sharp = require("sharp");
 
 // ### envrionment variables 
 const dotenv = require('dotenv');
@@ -27,16 +30,36 @@ passy = process.env.PASS
 // 'https://www.theguardian.com/collection/au-alpha/features/feature-stories/rss',
 // ]
 
-rss_feeds = ['https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss',
+rss_feeds = ['https://www.theguardian.com/collection/7f0d9448-a9af-40a4-a567-24582060d46a/rss','https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-business/rss'
 ]
 
 // ### Function to post new posts 
 async function post(agent, item) {
+
+  const buffer = await fetch(item.image)
+    .then((response) => response.arrayBuffer())
+    .then((buffer) => sharp(buffer))
+    .then((s) =>
+      s.resize(
+        s
+          .resize(800, null, {
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .jpeg({
+            quality: 80,
+            progressive: true,
+          })
+          .toBuffer()
+      )
+    );
+  const image = await agent.uploadBlob(buffer, { encoding: "image/jpeg" });
+
   let post = {
     $type: "app.bsky.feed.post",
     text: item.title,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   };
   const dom = await fetch(item.link)
     .then((response) => response.text())
@@ -47,6 +70,7 @@ async function post(agent, item) {
       uri: item.link,
       title: item.title,
       description: item.description,
+      thumb: image.data.blob,
     },
     $type: "app.bsky.embed.external",
   };
@@ -120,19 +144,18 @@ async function do_everything(feeds){
         
         .then(() => {
 
-
-            // ### This is what's actually posting 
-            list_of_stories.forEach(story => {
-              post(agent, story);
-            })
-
-      
+          final(agent, list_of_stories)
 
         })
-        
 
-        // .then(() => console.log("list_of_stories: ", list_of_stories))
+}
 
+const final = async (agent, listicle) => {
+
+  for await (const story of listicle) {
+    post(agent, story);
+    await timer(2000)
+  }
 
 }
 
