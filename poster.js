@@ -37,7 +37,17 @@ rss_feeds = ['https://www.theguardian.com/collection/7f0d9448-a9af-40a4-a567-245
 // ### Function to post new posts 
 async function post(agent, item) {
 
-  const buffer = await fetch(item.image)
+  const dom = await fetch(item.link)
+    .then((response) => response.text())
+    .then((html) => cheerio.load(html));
+
+  let image_url = null;
+  const image_url_ = dom('head > meta[property="og:image"]');
+  if (image_url_) {
+    image_url = await image_url_.attr("content");
+  }
+
+  const buffer = await fetch(image_url)
     .then((response) => response.arrayBuffer())
     .then((buffer) => sharp(buffer))
     .then((s) =>
@@ -61,13 +71,10 @@ async function post(agent, item) {
     text: item.title,
     createdAt: new Date().toISOString()
   };
-  const dom = await fetch(item.link)
-    .then((response) => response.text())
-    .then((html) => cheerio.load(html));
 
   post["embed"] = {
     external: {
-      uri: item.link,
+      uri: `${item.link}?CMP=aus_bsky`,
       title: item.title,
       description: item.description,
       thumb: image.data.blob,
@@ -77,7 +84,6 @@ async function post(agent, item) {
 
   const res = AppBskyFeedPost.validateRecord(post);
   if (res.success) {
-    console.log(post);
     agent.post(post);
   } else {
     console.log(res.error);
@@ -109,6 +115,15 @@ async function do_everything(feeds){
     }).then(response => 
       {
         cursor = response.cursor
+
+        let latest = response.data.feed.map(d => d.post.indexedAt)
+
+        console.log(new Date(Math.max.apply(null, latest.map(function(e) {
+          return new Date(e);
+        }))))
+
+        console.log(new Date())
+
         for (const feed of response.data.feed) {
           already_posted.push(feed.post.record.embed.external.uri)
         }
@@ -130,19 +145,19 @@ async function do_everything(feeds){
           // }
           // ### Check to see if it has already been posted 
           if (!already_posted.includes(item.link + '?CMP=aus_bsky')){
-          list_of_stories.push({
-            title: item.title,
-            link: item.link + '?CMP=aus_bsky',
-            description: item.contentSnippet,
-            image: item["media:content"][0]["$"]["url"]
-            }
-            )
+            list_of_stories.push({
+              title: item.title,
+              link: item.link,
+              description: item.contentSnippet
+            })
           }
         }
         })
         ))
         
         .then(() => {
+
+          console.log(list_of_stories.length)
 
           final(agent, list_of_stories)
 
@@ -152,9 +167,12 @@ async function do_everything(feeds){
 
 const final = async (agent, listicle) => {
 
+
+
   for await (const story of listicle) {
     post(agent, story);
-    await timer(2000)
+    //await timer(2000)
+    //console.log(story)
   }
 
 }
