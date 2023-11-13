@@ -99,7 +99,6 @@ async function do_everything(feeds){
         {
         for (const item of response.items)
         {
-          // console.log("items: ", item)
           // let inter_description = null;
           // const description_ = dom('head > meta[property="og:description"]');
           // if (description_) {
@@ -111,7 +110,8 @@ async function do_everything(feeds){
             title: item.title,
             link: item.link + '?CMP=aus_bsky',
             description: item.contentSnippet,
-          image: item.media}
+            image: item["media:content"][0]["$"]["url"]
+            }
             )
           }
         }
@@ -129,6 +129,7 @@ async function do_everything(feeds){
       
 
         })
+        
 
         // .then(() => console.log("list_of_stories: ", list_of_stories))
 
