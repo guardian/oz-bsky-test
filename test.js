@@ -16,24 +16,31 @@ let accounty = process.env.ACC
 let passy = process.env.PASS
 
 aus_feeds = [
+'https://www.theguardian.com/tracking/commissioningdesk/australia-news/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-state-news/rss',
-'https://www.theguardian.com/collection/26378188-9e67-41fc-a44e-93b0bffbfacf/rss',
-'https://www.theguardian.com/collection/79d9ddf6-a3f7-4d05-9fb4-bcf7c90ffdc0/rss',
-'https://www.theguardian.com/collection/1179cc92-7831-42c5-8046-0f1ccea831a8/rss',
-'https://www.theguardian.com/collection/7f0d9448-a9af-40a4-a567-24582060d46a/rss',
-'https://www.theguardian.com/collection/au-alpha/features/feature-stories/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-business/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-culture/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-lifestyle/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-opinion/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss',
 'https://www.theguardian.com/tracking/commissioningdesk/australia-sport/rss',
-'https://www.theguardian.com/collection/7f0d9448-a9af-40a4-a567-24582060d46a/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-features/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-investigations/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-data/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-video/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-pictures-/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-technology/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/new-zealand/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/pacific-news/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/australia-business/rss',
+'https://www.theguardian.com/tracking/commissioningdesk/the-rural-network/rss',
 'https://www.theguardian.com/collection/5d60fb3d-9bb2-439b-81d4-3bd4d625165a/rss'
 ]
 
 global_feeds = [
-'https://www.theguardian.com/collection/a63f-82a9-8f63-edf1/rss'
+'https://www.theguardian.com/collection/cdad59a3-e992-40f1-bf8d-677398064116/rss',     
+'https://www.theguardian.com/collection/A22fa7fc-684f-484a-90bf-3f5aa4b711f7/rss',     
+'https://www.theguardian.com/collection/016d967f-0303-4a47-b5e0-bf6d36ad4a52/rss',     
+'https://www.theguardian.com/collection/a63f-82a9-8f63-edf1/rss' 
 ]
 
 // ### Function to post new posts 
@@ -130,7 +137,7 @@ async function app(feeds){
 
         if (age <  28800000) { // Less than eight hours ago
 
-          if (!already_posted.includes(item.link + '?CMP=aus_bsky')) {
+          if (!already_posted.includes(item.link + '?CMP=aus_bsky') && !containsMatch(["ntwnfb", "nfbntw"], item.link)) {
 
             list_of_stories.push({
               title: item.title,
@@ -187,6 +194,14 @@ async function app(feeds){
 
 }
 
+function containsMatch(arr, searchString) {
+  for (let item of arr) {
+    if (item.includes(searchString)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 const temporal = (timestamp) => {
   
