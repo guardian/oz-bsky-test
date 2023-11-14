@@ -132,7 +132,7 @@ async function app(feeds){
 
         if (age <  28800000) { // Less than eight hours ago
 
-          if (!already_posted.includes(item.link + '?CMP=aus_bsky')) {
+          if (!already_posted.includes(item.link + '?CMP=aus_bsky') && !containsMatch(["ntwnfb", "nfbntw"], item.link)) {
 
             list_of_stories.push({
               title: item.title,
@@ -185,6 +185,15 @@ async function app(feeds){
 
   }
 
+}
+
+function containsMatch(arr, searchString) {
+  for (let item of arr) {
+    if (item.includes(searchString)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 
