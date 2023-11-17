@@ -16,6 +16,9 @@
     "cheerio": "^1.0.0-rc.12",
     "date-fns": "^2.30.0",
     "dotenv": "^16.3.1",
+    "guardian-js": "^5.0.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.7",
     "rss-parser": "^3.13.0",
     "sharp": "^0.32.6"
   }
