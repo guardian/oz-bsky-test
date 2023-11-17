@@ -223,7 +223,7 @@ async function wrapper() {
 
   let today = temporal(new Date().toLocaleString("en-US"))
 
-  let start = new Date(new Date(`${today} 1:00:00 AM`).toLocaleString("en-US")).getTime()
+  let start = new Date(new Date(`${today} 0:00:00 AM`).toLocaleString("en-US")).getTime()
 
   let end = new Date(new Date(`${today} 6:00:00 AM`).toLocaleString("en-US")).getTime()
 
