@@ -1,50 +1,19 @@
-const { BskyAgent, AppBskyFeedPost } = require("@atproto/api");
-const emailer = require("./mods/emailer");
-const cheerio = require("cheerio");
-const Parser = require("rss-parser");
-const parser = new Parser({
-  customFields: {
-    item: [
-      ['media:content', 'media:content', {keepArray: true}],
-    ]
-  }
-})
-
-
 const dotenv = require('dotenv');
 dotenv.config()
+const emailer = require("./mods/emailer");
+//const Guardian = require('guardian-js');
+const { BskyAgent, AppBskyFeedPost } = require("@atproto/api");
+const cheerio = require("cheerio");
+
 
 let accounty = process.env.ACC
 let passy = process.env.PASS
 let lastPost = 1200000
 const numberOfPosts = 1 // Number of posts at one time
 
-const aus_feeds = [
-'https://www.theguardian.com/tracking/commissioningdesk/australia-news/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-state-news/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-culture/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-lifestyle/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-opinion/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-politics/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-sport/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-features/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-investigations/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-data/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-video/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-pictures-/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-technology/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/new-zealand/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/pacific-news/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/australia-business/rss',
-'https://www.theguardian.com/tracking/commissioningdesk/the-rural-network/rss',
-'https://www.theguardian.com/collection/5d60fb3d-9bb2-439b-81d4-3bd4d625165a/rss'
-]
 
-const global_feeds = [
-'https://www.theguardian.com/collection/cdad59a3-e992-40f1-bf8d-677398064116/rss',       
-'https://www.theguardian.com/collection/016d967f-0303-4a47-b5e0-bf6d36ad4a52/rss',     
-'https://www.theguardian.com/collection/a63f-82a9-8f63-edf1/rss' 
-]
+//const guardian = new Guardian.default(process.env.API, false);
+// let edition = await guardian.content.search('au');
 
 const post = async(agent, item) => {
 
@@ -56,6 +25,12 @@ const post = async(agent, item) => {
   const image_url_ = dom('head > meta[property="og:image"]');
   if (image_url_) {
     image_url = await image_url_.attr("content");
+  }
+
+  let description = ""
+  let description_ = dom('head > meta[property="og:description"]');
+  if (description_) {
+  	description = await description_.attr("content");
   }
 
   const buffer = await fetch(image_url)
@@ -73,7 +48,7 @@ const post = async(agent, item) => {
     external: {
       uri: `${item.link}?CMP=aus_bsky`,
       title: item.title,
-      description: item.description,
+      description: description,
       thumb: image.data.blob,
     },
     $type: "app.bsky.embed.external",
@@ -127,29 +102,20 @@ async function app(feed1, feed2=[]){
 
     // Only post world stories between 1am and 6am, min of 5 minutes between posts all the time
 
-    const getStories = async (rssfeeds) => {
+    const getStories = async (feed) => {
 
-      const feedlist = await Promise.allSettled(rssfeeds.map(url => parser.parseURL(url)))
+        for await (const item of feed) {
 
-      const shortlist = feedlist.filter(d => d.status == 'fulfilled')
-
-      const rss = shortlist.map(d => d.value)
-
-      for await (const feed of rss) {
-
-        for (const item of feed.items) {
-
-          const age = new Date().getTime() - new Date(item.date).getTime();
+          const age = new Date().getTime() - new Date(item.webPublicationDate).getTime();
 
           if (age <  28800000) { // Less than eight hours ago
 
-            if (!already_posted.includes(item.link + '?CMP=aus_bsky') && !containsMatch(["ntwnfb", "nfbntw"], item.link)) {
+            if (!already_posted.includes(item.webUrl + '?CMP=aus_bsky') && !containsMatch(["ntwnfb", "nfbntw"], item.webUrl)) {
 
               list_of_stories.push({
-                title: item.title,
-                link: item.link,
-                description: item.contentSnippet,
-                published : new Date(item.date).getTime()
+                title: item.webTitle,
+                link: item.webUrl,
+                published : new Date(item.webPublicationDate).getTime()
               })
 
             }
@@ -157,8 +123,6 @@ async function app(feed1, feed2=[]){
           }
 
         }
-
-      }
 
     }
 
@@ -205,6 +169,45 @@ async function app(feed1, feed2=[]){
   }
 
 }
+async function wrapper() {
+
+  let sydneyTime = new Date()
+
+  let today = temporal(new Date().toLocaleString("en-US"))
+
+  let start = new Date(new Date(`${today} 0:00:00 AM`).toLocaleString("en-US")).getTime()
+
+  let end = new Date(new Date(`${today} 6:00:00 AM`).toLocaleString("en-US")).getTime()
+
+  let response = ""
+
+  if (sydneyTime.getTime() > start && sydneyTime.getTime() < end) {
+
+    lastPost = 2400000 // 40 minutes
+
+    response = `<p>It is between 1am and 6am in Australia right now. ${sydneyTime}. International feeds.</p>`
+
+    let global_feeds = await getArticles('australia-news')
+
+    response += await app(global_feeds, []) 
+
+  } else {
+
+    lastPost = 1200000 // 20 minutes
+
+    let aus_feeds = await getArticles('australia-news')
+
+    let global_feeds = await getArticles('world')
+
+    response = "<p>Australian feeds.</p> "
+
+    response += await app(aus_feeds, global_feeds) 
+
+  }
+
+  return response
+
+}
 
 function millisecondsToMinutes(milliseconds) {
   const minutes = milliseconds / (1000 * 60);
@@ -229,71 +232,34 @@ const temporal = (timestamp) => {
 
 }
 
-async function wrapper() {
+async function getArticles(section='australia-news') {
 
-  let sydneyTime = new Date()
+	const baseUrl = `https://content.guardianapis.com/${section}`;
 
-  let today = temporal(new Date().toLocaleString("en-US"))
+	const params = new URLSearchParams();
+	params.append('api-key', process.env.API);
 
-  let start = new Date(new Date(`${today} 0:00:00 AM`).toLocaleString("en-US")).getTime()
+	const url = `${baseUrl}?${params.toString()}`;
 
-  let end = new Date(new Date(`${today} 6:00:00 AM`).toLocaleString("en-US")).getTime()
+	let json = await fetch(url).then(d => d.json())
 
-  let response = ""
-
-  if (sydneyTime.getTime() > start && sydneyTime.getTime() < end) {
-
-    lastPost = 2400000 // 40 minutes
-
-    response = `<p>It is between 1am and 6am in Australia right now. ${sydneyTime}. International feeds.</p>`
-
-    response += await app(global_feeds, []) 
-
-  } else {
-
-    lastPost = 1200000 // 20 minutes
-
-    response = "<p>Australian feeds.</p> "
-
-    response += await app(aus_feeds, global_feeds) 
-
-  }
-
-  return response
+	return json.response.results
 
 }
 
-/*
 
-exports.handler = async (event) => {
-    
-    const response = await wrapper()
-
-    if (process.env.TESTING == "TRUE") {
-
-      let temp = await emailer('Bluesky@' + new Date() + " - V2", `${response}`, 'work@andyball.info')
-
-    }
-
-    return response
-
-};
-
-*/
+;(async () => {
 
 
-  ;(async function () {
+	const response = await wrapper()
+
+	if (process.env.TESTING == "TRUE") {
+
+	  let temp = await emailer('Bluesky@' + new Date() + " - from API", `${response}`, 'work@andyball.info')
+
+	}
+
+	console.log(response)
 
 
-    const response = await wrapper()
-
-    if (process.env.TESTING == "TRUE") {
-
-      let temp = await emailer('Bluesky@' + new Date() + " - V2", `${response}`, 'work@andyball.info')
-
-    }
-
-    console.log(response)
-
-
-  })();
+})();
